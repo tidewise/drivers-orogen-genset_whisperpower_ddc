@@ -1,0 +1,14 @@
+<package>
+  <description brief="oroGen integration of the WhiperPower Genset driver library">
+  
+  </description>
+  <author>Mateus Pedrosa/mateus.pedrosa@tidewise.io</author>
+  <license></license>
+  <url>http://</url>
+  <logo>http://</logo>
+  <depend package="drivers/genset_whisperpower_ddc" />
+  <depend package="base/orogen/types" />
+  <depend package="drivers/orogen/iodrivers_base" />
+
+  <test_depend package="tools/syskit" />
+</package>

@@ -51,12 +51,13 @@ bool Task::startHook()
 }
 void Task::updateHook()
 {
+    auto now = Time::now();
     Frame frame = m_driver->readFrame();
 
     if (frame.targetID == 0x0081 && frame.sourceID == 0x0088) {
         if (frame.command == 2){
             GeneratorState generator_state;
-            generator_state.time = base::Time::now();
+            generator_state.time = now;
             generator_state.rpm = (frame.payload[1] << 8) | frame.payload[0];
             stgenerator_state.udc_start_battery = (frame.payload[3] << 8) | frame.payload[2];
             std::bitset<8> statusA(frame.payload[4]);
@@ -94,7 +95,7 @@ void Task::updateHook()
         }
         else if (frame.command == 14) {
             RunTimeState run_time_state;
-            run_time_state.time = base::Time::now();
+            run_time_state.time = now;
             run_time_state.total_runtime_minutes = frame.payload[0];
             run_time_state.total_runtime_hours = (frame.payload[3] << 16) | (frame.payload[2] << 8) | frame.payload[1];
             run_time_state.historical_runtime_minutes = frame.payload[4];

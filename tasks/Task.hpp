@@ -41,7 +41,7 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
 
         /** Default deconstructor of Task
          */
-	~Task();
+	    ~Task();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the
@@ -100,6 +100,15 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
          * before calling start() again.
          */
         void cleanupHook();
+
+    private:
+        /** Extract data from frame and put it into a GeneratorState struct with "time" as its timestamp
+         */
+        GeneratorState parseGeneratorState(Frame const& frame, Time const& time) const;
+
+        /** Extract data from frame and put it into a RunTimeState struct with "time" as its timestamp
+         */
+        RunTimeState parseRunTimeState(Frame const& frame, Time const& time) const;
     };
 }
 

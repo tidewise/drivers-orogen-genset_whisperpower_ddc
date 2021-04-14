@@ -53,67 +53,59 @@ void Task::updateHook()
 {
     Frame frame = m_driver->readFrame();
 
-    if (frame.targetID != 0x0081) {
-        return exception(UNKNOWN_TARGET_ID);
-    }
+    if (frame.targetID == 0x0081 && frame.sourceID == 0x0088) {
+        if (frame.command == 2){
+            GeneratorState generator_state;
+            generator_state.time = base::Time::now();
+            generator_state.rpm = (frame.payload[1] << 8) | frame.payload[0];
+            stgenerator_state.udc_start_battery = (frame.payload[3] << 8) | frame.payload[2];
+            std::bitset<8> statusA(frame.payload[4]);
+            generator_state.overall_alarm = statusA[0];
+            generator_state.engine_temperature_alarm = statusA[1];
+            generator_state.pm_voltage_alarm = statusA[2];
+            generator_state.oil_pressure_alarm = statusA[3];
+            generator_state.exhaust_temperature_alarm = statusA[4];
+            generator_state.uac1_alarm = statusA[5];
+            generator_state.iac1_alarm = statusA[6];
+            generator_state.oil_pressure_high_alarm = statusA[7];
+            std::bitset<8> statusB(frame.payload[5]);
+            generator_state.low_start_battery_voltage_alarm = statusB[2];
+            generator_state.start_failure = statusB[4];
+            generator_state.run_signal = statusB[5];
+            generator_state.start_by_operation_unit = statusB[7];
+            std::bitset<8> statusC(frame.payload[6]);
+            generator_state.model_detection_50hz = statusC[2];
+            generator_state.model_detection_60hz = statusC[3];
+            generator_state.model_detection_3_phase = statusC[4];
+            generator_state.model_detection_mobile = statusC[5];
+            if (frame.payload[7] < 0x0E){
+                generator_state.generator_status = static_cast<GeneratorStatus>(frame.payload[7]);
+            }
+            else{
+                generator_state.generator_status = STATUS_UNKNOWN;
+            }
+            generator_state.generator_type = frame.payload[8];
 
-    if (frame.sourceID != 0x0088) {
-        return exception(UNKNOWN_SOURCE_ID);
-    }
-    if (frame.command == 2){
-        GeneratorState generator_state;
-        generator_state.rpm = (frame.payload[1] << 8) | frame.payload[0];
-        stgenerator_state.udc_start_battery = (frame.payload[3] << 8) | frame.payload[2];
-        std::bitset<8> statusA(frame.payload[4]);
-        generator_state.overall_alarm = statusA[0];
-        generator_state.engine_temperature_alarm = statusA[1];
-        generator_state.pm_voltage_alarm = statusA[2];
-        generator_state.oil_pressure_alarm = statusA[3];
-        generator_state.exhaust_temperature_alarm = statusA[4];
-        generator_state.uac1_alarm = statusA[5];
-        generator_state.iac1_alarm = statusA[6];
-        generator_state.oil_pressure_high_alarm = statusA[7];
-        std::bitset<8> statusB(frame.payload[5]);
-        generator_state.low_start_battery_voltage_alarm = statusB[2];
-        generator_state.start_failure = statusB[4];
-        generator_state.run_signal = statusB[5];
-        generator_state.start_by_operation_unit = statusB[7];
-        std::bitset<8> statusC(frame.payload[6]);
-        generator_state.model_detection_50hz = statusC[2];
-        generator_state.model_detection_60hz = statusC[3];
-        generator_state.model_detection_3_phase = statusC[4];
-        generator_state.model_detection_mobile = statusC[5];
-        if (frame.payload[7] < 0x0E){
-            generator_state.generator_status = static_cast<GeneratorStatus>(frame.payload[7]);
+            _generator_state.write(generator_state);
+
+            while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
+                sendControlCommand(m_control_cmd);
+            }
         }
-        else{
-            generator_state.generator_status = STATUS_UNKNOWN;
+        else if (frame.command == 14) {
+            RunTimeState run_time_state;
+            run_time_state.time = base::Time::now();
+            run_time_state.total_runtime_minutes = frame.payload[0];
+            run_time_state.total_runtime_hours = (frame.payload[3] << 16) | (frame.payload[2] << 8) | frame.payload[1];
+            run_time_state.historical_runtime_minutes = frame.payload[4];
+            run_time_state.historical_runtime_hours = (frame.payload[7] << 16) | (frame.payload[6] << 8) | frame.payload[5];
+
+            _run_time_state.write(run_time_state);
+
+            while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
+                sendControlCommand(m_control_cmd);
+            }
         }
-        generator_state.generator_type = frame.payload[8];
-
-        _generator_state.write(generator_state);
-
-        // wait 20 to 80 ms after received valid message
-        while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
-            sendControlCommand(m_control_cmd);
-        }
-    }
-    else if (frame.command == 14) {
-        RunTimeState run_time_state;
-        run_time_state.total_runtime_minutes = frame.payload[0];
-        run_time_state.total_runtime_hours = (frame.payload[3] << 16) | (frame.payload[2] << 8) | frame.payload[1];
-        run_time_state.historical_runtime_minutes = frame.payload[4];
-        run_time_state.historical_runtime_hours = (frame.payload[7] << 16) | (frame.payload[6] << 8) | frame.payload[5];
-
-        _run_time_state.write(run_time_state);
-
-        // wait 20 to 80 ms after received valid message
-        while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
-            sendControlCommand(m_control_cmd);
-        }
-    }
-    else {
-        return exception(UNKNOWN_COMMAND);
     }
 
     TaskBase::updateHook();

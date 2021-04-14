@@ -38,6 +38,8 @@ namespace genset_whisperpower_ddc {
     };
 
     struct RunTimeState {
+        base::Time time;
+        
         int total_runtime_minutes; // Total run time to be reset after maintenance
         int total_runtime_hours;
         int historical_runtime_minutes;

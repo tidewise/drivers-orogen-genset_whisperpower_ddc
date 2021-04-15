@@ -66,7 +66,7 @@ void Task::updateHook()
             }
         }
         else if (frame.command == 14) {
-            _run_time_state.write(parseRunTimeState(frame, now));
+            _runtime_state.write(parseRunTimeState(frame, now));
 
             while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
                 sendControlCommand(m_control_cmd);
@@ -128,12 +128,12 @@ GeneratorState parseGeneratorState(Frame const& frame, Time const& time) {
 }
 
 RunTimeState parseRunTimeState(Frame const& frame, Time const& time) {
-    RunTimeState run_time_state;
-    run_time_state.time = time;
-    run_time_state.total_runtime_minutes = frame.payload[0];
-    run_time_state.total_runtime_hours = (frame.payload[3] << 16) | (frame.payload[2] << 8) | frame.payload[1];
-    run_time_state.historical_runtime_minutes = frame.payload[4];
-    run_time_state.historical_runtime_hours = (frame.payload[7] << 16) | (frame.payload[6] << 8) | frame.payload[5];
+    RunTimeState runtime_state;
+    runtime_state.time = time;
+    runtime_state.total_runtime_minutes = frame.payload[0];
+    runtime_state.total_runtime_hours = (frame.payload[3] << 16) | (frame.payload[2] << 8) | frame.payload[1];
+    runtime_state.historical_runtime_minutes = frame.payload[4];
+    runtime_state.historical_runtime_hours = (frame.payload[7] << 16) | (frame.payload[6] << 8) | frame.payload[5];
 
-    return run_time_state;
+    return runtime_state;
 }

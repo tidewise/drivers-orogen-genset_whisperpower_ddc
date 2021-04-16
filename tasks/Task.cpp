@@ -1,7 +1,7 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
 #include "Task.hpp"
-#include <genset_whisperpower_ddc/VariableSpeedMaster.hpp>
+#include <iodrivers_base/ConfigureGuard.hpp>
 #include <bits/stdc++.h>
 
 using namespace std;
@@ -62,19 +62,22 @@ void Task::updateHook()
             _generator_state.write(parseGeneratorState(frame, now));
 
             while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
-                sendControlCommand(m_control_cmd);
+                m_driver->sendControlCommand(m_control_cmd);
             }
         }
         else if (frame.command == 14) {
-            _runtime_state.write(parseRunTimeState(frame, now));
+            _runtime_state.write(parseRuntimeState(frame, now));
 
             while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
-                sendControlCommand(m_control_cmd);
+                m_driver->sendControlCommand(m_control_cmd);
             }
         }
     }
 
     TaskBase::updateHook();
+}
+void Task::processIO()
+{
 }
 void Task::errorHook()
 {
@@ -92,11 +95,12 @@ void Task::cleanupHook()
     m_driver.release();
 }
 
-GeneratorState parseGeneratorState(Frame const& frame, Time const& time) {
+GeneratorState Task::parseGeneratorState(Frame const& frame, Time const& time) const
+{
     GeneratorState generator_state;
     generator_state.time = time;
     generator_state.rpm = (frame.payload[1] << 8) | frame.payload[0];
-    stgenerator_state.udc_start_battery = (frame.payload[3] << 8) | frame.payload[2];
+    generator_state.udc_start_battery = (frame.payload[3] << 8) | frame.payload[2];
     std::bitset<8> statusA(frame.payload[4]);
     generator_state.overall_alarm = statusA[0];
     generator_state.engine_temperature_alarm = statusA[1];
@@ -127,8 +131,9 @@ GeneratorState parseGeneratorState(Frame const& frame, Time const& time) {
     return generator_state;
 }
 
-RunTimeState parseRunTimeState(Frame const& frame, Time const& time) {
-    RunTimeState runtime_state;
+RuntimeState Task::parseRuntimeState(Frame const& frame, Time const& time) const
+{
+    RuntimeState runtime_state;
     runtime_state.time = time;
     runtime_state.total_runtime_minutes = frame.payload[0];
     runtime_state.total_runtime_hours = (frame.payload[3] << 16) | (frame.payload[2] << 8) | frame.payload[1];

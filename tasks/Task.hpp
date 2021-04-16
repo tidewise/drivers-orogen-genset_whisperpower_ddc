@@ -4,6 +4,7 @@
 #define GENSET_WHISPERPOWER_DDC_TASK_TASK_HPP
 
 #include "genset_whisperpower_ddc/TaskBase.hpp"
+#include <genset_whisperpower_ddc/VariableSpeedMaster.hpp>
 
 namespace genset_whisperpower_ddc{
 
@@ -82,6 +83,8 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
          */
         void updateHook();
 
+        void processIO();
+
         /** This hook is called by Orocos when the component is in the
          * RunTimeError state, at each activity step. See the discussion in
          * updateHook() about triggering options.
@@ -104,11 +107,11 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
     private:
         /** Extract data from frame and put it into a GeneratorState struct with "time" as its timestamp
          */
-        GeneratorState parseGeneratorState(Frame const& frame, Time const& time) const;
+        GeneratorState parseGeneratorState(Frame const& frame, base::Time const& time) const;
 
-        /** Extract data from frame and put it into a RunTimeState struct with "time" as its timestamp
+        /** Extract data from frame and put it into a RuntimeState struct with "time" as its timestamp
          */
-        RunTimeState parseRunTimeState(Frame const& frame, Time const& time) const;
+        RuntimeState parseRuntimeState(Frame const& frame, base::Time const& time) const;
     };
 }
 

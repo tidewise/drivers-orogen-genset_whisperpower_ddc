@@ -88,7 +88,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         sample = expect_execution.to { have_one_new_sample task.runtime_state_port }
 
-        expected_state = RunTimeState.new(
+        expected_state = RuntimeState.new(
             time: now,
             total_runtime_minutes: 0,
             total_runtime_hours: (3 << 16) | (2 << 8) | 1,

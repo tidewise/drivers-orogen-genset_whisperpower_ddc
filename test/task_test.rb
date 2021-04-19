@@ -12,21 +12,22 @@ describe OroGen.genset_whisperpower_ddc.Task do
             OroGen.genset_whisperpower_ddc.Task
                   .deployed_as("genset_whisperpower_ddc")
         )
+        @task.properties.io_read_timeout = Time.at(2)
     end
 
     def iodrivers_base_prepare(model)
         task = syskit_deploy(model)
-        syskit_configure_and_start(task)
+        syskit_start_execution_agents(task)
 
         task
     end
 
     it "outputs_new_generator_state_when_receives_command_2_frame" do
         received_frame = [
-            variable_speed::TARGET_ADDRESS & 0xFF,
-            (variable_speed::TARGET_ADDRESS >> 8) & 0xFF,
-            variable_speed::SOURCE_ADDRESS & 0xFF,
-            (variable_speed::SOURCE_ADDRESS >> 8) & 0xFF,
+            0x81,
+            0x00,
+            0x88,
+            0x00,
             0x02,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x38
@@ -72,10 +73,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
     it "outputs_runtime_state_when_receives_command_14_frame" do
         received_frame = [
-            variable_speed::TARGET_ADDRESS & 0xFF,
-            (variable_speed::TARGET_ADDRESS >> 8) & 0xFF,
-            variable_speed::SOURCE_ADDRESS & 0xFF,
-            (variable_speed::SOURCE_ADDRESS >> 8) & 0xFF,
+            0x81,
+            0x00,
+            0x88,
+            0x00,
             0x0E,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x44
@@ -101,10 +102,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
     it "sends_the_received_control_command" do
         received_frame = [
-            variable_speed::TARGET_ADDRESS & 0xFF,
-            (variable_speed::TARGET_ADDRESS >> 8) & 0xFF,
-            variable_speed::SOURCE_ADDRESS & 0xFF,
-            (variable_speed::SOURCE_ADDRESS >> 8) & 0xFF,
+            0x81,
+            0x00,
+            0x88,
+            0x00,
             0x0E,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x44
@@ -120,10 +121,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
         sent_frame = expect_execution.to { have_one_new_sample task.io_raw_out_port }
 
         expected_frame = [
-            variable_speed::TARGET_ADDRESS & 0xFF,
-            (variable_speed::TARGET_ADDRESS >> 8) & 0xFF,
-            variable_speed::SOURCE_ADDRESS & 0xFF,
-            (variable_speed::SOURCE_ADDRESS >> 8) & 0xFF,
+            0x81,
+            0x00,
+            0x88,
+            0x00,
             0xF7,
             0x02, 0x00, 0x00, 0x00,
             0x02
@@ -134,10 +135,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
     it "does_not_send_frame_if_has_not_received_new_command" do
         received_frame = [
-            variable_speed::TARGET_ADDRESS & 0xFF,
-            (variable_speed::TARGET_ADDRESS >> 8) & 0xFF,
-            variable_speed::SOURCE_ADDRESS & 0xFF,
-            (variable_speed::SOURCE_ADDRESS >> 8) & 0xFF,
+            0x81,
+            0x00,
+            0x88,
+            0x00,
             0x0E,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x44
@@ -155,8 +156,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
         received_frame = [
             0xFF,
             0xFF,
-            variable_speed::SOURCE_ADDRESS & 0xFF,
-            (variable_speed::SOURCE_ADDRESS >> 8) & 0xFF,
+            0x88,
+            0x00,
             0x0E,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x44
@@ -170,8 +171,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
         expect_execution.to { have_no_new_sample task.runtime_state_port }
 
         received_frame = [
-            variable_speed::TARGET_ADDRESS & 0xFF,
-            (variable_speed::TARGET_ADDRESS >> 8) & 0xFF,
+            0x81,
+            0x00,
             0xFF,
             0xFF,
             0x0E,
@@ -187,10 +188,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
         expect_execution.to { have_no_new_sample task.runtime_state_port }
 
         received_frame = [
-            variable_speed::TARGET_ADDRESS & 0xFF,
-            (variable_speed::TARGET_ADDRESS >> 8) & 0xFF,
-            variable_speed::SOURCE_ADDRESS & 0xFF,
-            (variable_speed::SOURCE_ADDRESS >> 8) & 0xFF,
+            0x81,
+            0x00,
+            0x88,
+            0x00,
             0xFF,
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x44

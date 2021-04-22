@@ -6,8 +6,9 @@ import_types_from "std"
 import_types_from "base"
 
 using_library "genset_whisperpower_ddc"
-import_types_from "genset_whisperpower_ddc/GeneratorStatus.hpp"
 import_types_from "genset_whisperpower_ddc/ControlCommand.hpp"
+import_types_from "genset_whisperpower_ddc/GeneratorState.hpp"
+import_types_from "genset_whisperpower_ddc/RuntimeState.hpp"
 
 # If new data types need to be defined, they have to be put in a separate C++
 # header, and this header will be loaded here

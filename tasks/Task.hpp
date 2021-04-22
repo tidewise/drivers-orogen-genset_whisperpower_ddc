@@ -104,14 +104,7 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
          */
         void cleanupHook();
 
-    private:
-        /** Extract data from frame and put it into a GeneratorState struct with "time" as its timestamp
-         */
-        GeneratorState parseGeneratorState(Frame const& frame, base::Time const& time) const;
-
-        /** Extract data from frame and put it into a RuntimeState struct with "time" as its timestamp
-         */
-        RuntimeState parseRuntimeState(Frame const& frame, base::Time const& time) const;
+        void exceptionHook();
     };
 }
 

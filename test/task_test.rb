@@ -38,12 +38,14 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x38
         ]
-        now = Time.now
         syskit_wait_ready(writer, component: task)
-        sample = expect_execution { writer.write Types.iodrivers_base.RawPacket.new(time: now, data: received_frame) }
+        sample = expect_execution do
+                     writer.write Types.iodrivers_base.RawPacket.new(
+                         time: Time.now, data: received_frame
+                     )
+                 end
                  .to { have_one_new_sample task.generator_state_port }
 
-        # assert_equal now, sample.time
         assert_equal (1 << 8) | 0, sample.rpm
         assert_equal (3 << 8) | 2, sample.udc_start_battery
         assert_equal 4, sample.statusA
@@ -63,12 +65,14 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x44
         ]
-        now = Time.now
         syskit_wait_ready(writer, component: task)
-        sample = expect_execution { writer.write Types.iodrivers_base.RawPacket.new(time: now, data: received_frame) }
+        sample = expect_execution do
+                     writer.write Types.iodrivers_base.RawPacket.new(
+                         time: Time.now, data: received_frame
+                     )
+                 end
                  .to { have_one_new_sample task.runtime_state_port }
 
-        # assert_equal now, sample.time
         assert_equal 0, sample.total_runtime_minutes
         assert_equal (3 << 16) | (2 << 8) | 1, sample.total_runtime_hours
         assert_equal 4, sample.historical_runtime_minutes
@@ -87,8 +91,12 @@ describe OroGen.genset_whisperpower_ddc.Task do
         ]
 
         syskit_wait_ready(writer, component: task)
-        syskit_write(task.control_cmd_port, :CONTROL_CMD_STOP)
-        sent_frame = expect_execution { writer.write Types.iodrivers_base.RawPacket.new(time: Time.now, data: received_frame) }
+        sent_frame = expect_execution do
+                         syskit_write(task.control_cmd_port, :CONTROL_CMD_STOP)
+                         writer.write Types.iodrivers_base.RawPacket.new(
+                             time: Time.now, data: received_frame
+                         )
+                     end
                      .to do
                          have_one_new_sample task.runtime_state_port
                          have_one_new_sample task.io_raw_out_port
@@ -121,7 +129,11 @@ describe OroGen.genset_whisperpower_ddc.Task do
         ]
 
         syskit_wait_ready(writer, component: task)
-        expect_execution { writer.write Types.iodrivers_base.RawPacket.new(time: Time.now, data: received_frame) }
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
             .to { have_no_new_sample task.io_raw_out_port }
     end
 
@@ -137,7 +149,11 @@ describe OroGen.genset_whisperpower_ddc.Task do
         ]
 
         syskit_wait_ready(writer, component: task)
-        expect_execution { writer.write Types.iodrivers_base.RawPacket.new(time: Time.now, data: received_frame) }
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
             .to { have_no_new_sample task.runtime_state_port }
 
         received_frame = [
@@ -151,7 +167,11 @@ describe OroGen.genset_whisperpower_ddc.Task do
         ]
 
         syskit_wait_ready(writer, component: task)
-        expect_execution { writer.write Types.iodrivers_base.RawPacket.new(time: Time.now, data: received_frame) }
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
             .to { have_no_new_sample task.runtime_state_port }
 
         received_frame = [
@@ -165,7 +185,11 @@ describe OroGen.genset_whisperpower_ddc.Task do
         ]
 
         syskit_wait_ready(writer, component: task)
-        expect_execution { writer.write Types.iodrivers_base.RawPacket.new(time: Time.now, data: received_frame) }
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
             .to { have_no_new_sample task.runtime_state_port }
     end
 end

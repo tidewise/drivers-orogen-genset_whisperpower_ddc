@@ -17,6 +17,14 @@ describe OroGen.genset_whisperpower_ddc.Task do
         @task.properties.io_read_timeout = Time.at(2)
     end
 
+    after do
+        if task&.running?
+            expect_execution { task.stop! }
+                .join_all_waiting_work(false)
+                .to { emit task.stop_event }
+        end
+    end
+
     def iodrivers_base_prepare(model)
         task = syskit_deploy(model)
         syskit_start_execution_agents(task)
@@ -35,9 +43,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x88,
             0x00,
             0x02,
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9,
             0x38
         ]
+
         syskit_wait_ready(writer, component: task)
         sample = expect_execution do
                      writer.write Types.iodrivers_base.RawPacket.new(
@@ -46,13 +55,11 @@ describe OroGen.genset_whisperpower_ddc.Task do
                  end
                  .to { have_one_new_sample task.generator_state_port }
 
-        assert_equal (1 << 8) | 0, sample.rpm
-        assert_equal (3 << 8) | 2, sample.udc_start_battery
-        assert_equal 4, sample.statusA
-        assert_equal 5, sample.statusB
-        assert_equal 6, sample.statusC
+        assert_equal (0x01 << 8) | 0x00, sample.rpm
+        assert_equal (0x03 << 8) | 0x02, sample.udc_start_battery
+        assert_equal 0x060504, sample.status
         assert_equal :STATUS_PRESENT, sample.generator_status
-        assert_equal 8, sample.generator_type
+        assert_equal 0x08, sample.generator_type
     end
 
     it "outputs_runtime_state_when_receives_command_14_frame" do
@@ -65,6 +72,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             0x44
         ]
+
         syskit_wait_ready(writer, component: task)
         sample = expect_execution do
                      writer.write Types.iodrivers_base.RawPacket.new(
@@ -73,10 +81,13 @@ describe OroGen.genset_whisperpower_ddc.Task do
                  end
                  .to { have_one_new_sample task.runtime_state_port }
 
-        assert_equal 0, sample.total_runtime_minutes
-        assert_equal (3 << 16) | (2 << 8) | 1, sample.total_runtime_hours
-        assert_equal 4, sample.historical_runtime_minutes
-        assert_equal (7 << 16) | (6 << 8) | 5, sample.historical_runtime_hours
+        minutes = 0x00
+        hours = (0x03 << 16) | (0x02 << 0x08) | 0x01
+        #assert_equal Types.base.Time.new((hours * 60 * 60 * 1_000_000) + (minutes * 60 * 1_000_000)), sample.total_runtime
+
+        minutes = 0x04
+        hours = (0x07 << 16) | (0x06 << 8) | 0x05
+        #assert_equal Types.base.Time.new((hours * 60 * 60 * 1_000_000) + (minutes * 60 * 1_000_000)), sample.historical_runtime
     end
 
     it "sends_the_received_control_command" do
@@ -86,7 +97,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x88,
             0x00,
             0x0E,
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x44
         ]
 
@@ -124,7 +135,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x88,
             0x00,
             0x0E,
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x44
         ]
 
@@ -144,7 +155,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x88,
             0x00,
             0x0E,
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x44
         ]
 
@@ -162,7 +173,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0xFF,
             0xFF,
             0x0E,
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x44
         ]
 
@@ -180,7 +191,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x88,
             0x00,
             0xFF,
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x44
         ]
 
@@ -191,5 +202,47 @@ describe OroGen.genset_whisperpower_ddc.Task do
             )
         end
             .to { have_no_new_sample task.runtime_state_port }
+    end
+
+    it "does_nothing_when_reads_invalid_frame" do
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x02,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x39 # invalid checksum
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
+            .to do
+                have_no_new_sample task.generator_state_port
+            end
+
+        # frame too long
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x02,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+            0x42
+        ]
+        syskit_wait_ready(writer, component: task)
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
+            .to do
+                have_no_new_sample task.generator_state_port
+            end
     end
 end

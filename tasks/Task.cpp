@@ -2,6 +2,7 @@
 
 #include "Task.hpp"
 #include <iodrivers_base/ConfigureGuard.hpp>
+#include <genset_whisperpower_ddc/VariableSpeed.hpp>
 #include <bits/stdc++.h>
 
 using namespace std;
@@ -55,7 +56,21 @@ bool Task::startHook()
 void Task::updateHook()
 {
     auto now = Time::now();
-    Frame frame = m_driver->readFrame();
+
+    Frame frame;
+
+    try
+    {
+        frame = m_driver->readFrame();
+    }
+    catch(const variable_speed::WrongSize& e)
+    {
+        return;
+    }
+    catch(const variable_speed::InvalidChecksum& e)
+    {
+        return;
+    }
 
     if (frame.targetID == 0x0081 && frame.sourceID == 0x0088) {
         if (frame.command == 2){

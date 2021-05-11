@@ -6,9 +6,10 @@ import_types_from "std"
 import_types_from "base"
 
 using_library "genset_whisperpower_ddc"
+
 import_types_from "genset_whisperpower_ddc/ControlCommand.hpp"
 import_types_from "genset_whisperpower_ddc/GeneratorState.hpp"
-import_types_from "genset_whisperpower_ddc/RuntimeState.hpp"
+import_types_from "genset_whisperpower_ddc/RunTimeState.hpp"
 
 # If new data types need to be defined, they have to be put in a separate C++
 # header, and this header will be loaded here
@@ -40,7 +41,7 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     # if this output is connected to an input or not.
     output_port "generator_state", "/genset_whisperpower_ddc/GeneratorState"
 
-    output_port "runtime_state", "/genset_whisperpower_ddc/RuntimeState"
+    output_port "run_time_state", "/genset_whisperpower_ddc/RunTimeState"
 
     # If you want that component's updateHook() to be executed when the "input"
     # port gets data, uncomment this and comment the 'periodic' line
@@ -48,4 +49,3 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     # By default, the task will be periodic with a period of 0.1
     periodic 0.1
 end
-

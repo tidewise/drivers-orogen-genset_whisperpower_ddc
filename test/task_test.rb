@@ -36,14 +36,14 @@ describe OroGen.genset_whisperpower_ddc.Task do
         [task, reader, writer]
     end
 
-    it "outputs_new_generator_state_when_receives_command_2_frame" do
+    it "outputs_new_generator_state_when_receives_generator_state_and_model_frame" do
         received_frame = [
             0x81,
             0x00,
             0x88,
             0x00,
-            0x02,
-            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9,
+            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x38
         ]
 
@@ -55,20 +55,22 @@ describe OroGen.genset_whisperpower_ddc.Task do
                  end
                  .to { have_one_new_sample task.generator_state_port }
 
-        assert_equal (0x01 << 8) | 0x00, sample.rpm
-        assert_equal (0x03 << 8) | 0x02, sample.udc_start_battery
-        assert_equal 0x060504, sample.status
+        assert_equal (((2 * Math::PI) / 60) * ((0x01 << 8) | 0x00)).round(5),
+                     sample.rotation_speed.round(5)
+        assert_equal (0.01 * ((0x03 << 8) | 0x02)).round(5),
+                     sample.start_battery_voltage.round(5)
+        assert_equal 0x0504, sample.alarms
+        assert_equal 0x05, sample.start_signals
         assert_equal :STATUS_PRESENT, sample.generator_status
-        assert_equal 0x08, sample.generator_type
     end
 
-    it "outputs_new_runtime_state_when_receives_command_14_frame" do
+    it "outputs_new_run_time_state_when_receives_run_time_state_frame" do
         received_frame = [
             0x81,
             0x00,
             0x88,
             0x00,
-            0x0E,
+            0x0E, # PACKET_RUN_TIME_STATE
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x44
         ]
@@ -79,15 +81,15 @@ describe OroGen.genset_whisperpower_ddc.Task do
                          time: Time.now, data: received_frame
                      )
                  end
-                 .to { have_one_new_sample task.runtime_state_port }
+                 .to { have_one_new_sample task.run_time_state_port }
 
         minutes = 0x00
         hours = (0x03 << 16) | (0x02 << 0x08) | 0x01
-        assert_equal Time.at((hours * 60 * 60) + (minutes * 60)), sample.total_runtime
+        assert_equal Time.at((hours * 60 * 60) + (minutes * 60)), sample.total_run_time
 
         minutes = 0x04
         hours = (0x07 << 16) | (0x06 << 8) | 0x05
-        assert_equal Time.at((hours * 60 * 60) + (minutes * 60)), sample.historical_runtime
+        assert_equal Time.at((hours * 60 * 60) + (minutes * 60)), sample.historical_run_time
     end
 
     it "sends_the_received_control_command" do
@@ -96,7 +98,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x00,
             0x88,
             0x00,
-            0x0E,
+            0x0E, # PACKET_RUN_TIME_STATE
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
             0x44
         ]
@@ -109,7 +111,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
                          )
                      end
                      .to do
-                         have_one_new_sample task.runtime_state_port
+                         have_one_new_sample task.run_time_state_port
                          have_one_new_sample task.io_raw_out_port
                      end
 
@@ -118,7 +120,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x00,
             0x88,
             0x00,
-            0xF7,
+            0xF7, # PACKET_START_STOP
             0x02, 0x00, 0x00, 0x00,
             0x02
         ]
@@ -165,7 +167,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
                 time: Time.now, data: received_frame
             )
         end
-            .to { have_no_new_sample task.runtime_state_port }
+            .to { have_no_new_sample task.run_time_state_port }
 
         received_frame = [
             0x81,
@@ -183,7 +185,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
                 time: Time.now, data: received_frame
             )
         end
-            .to { have_no_new_sample task.runtime_state_port }
+            .to { have_no_new_sample task.run_time_state_port }
 
         received_frame = [
             0x81,
@@ -201,7 +203,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
                 time: Time.now, data: received_frame
             )
         end
-            .to { have_no_new_sample task.runtime_state_port }
+            .to { have_no_new_sample task.run_time_state_port }
     end
 
     it "does_not_output_new_state_when_reads_invalid_frame" do

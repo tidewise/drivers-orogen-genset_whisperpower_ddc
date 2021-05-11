@@ -89,7 +89,7 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
          * RunTimeError state, at each activity step. See the discussion in
          * updateHook() about triggering options.
          *
-         * Call recover() to go back in the Runtime state.
+         * Call recover() to go back in the RunTime state.
          */
         void errorHook();
 

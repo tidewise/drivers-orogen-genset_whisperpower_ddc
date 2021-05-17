@@ -55,6 +55,11 @@ bool Task::startHook()
 
 void Task::updateHook()
 {
+    TaskBase::updateHook();
+}
+
+void Task::processIO()
+{
     auto now = Time::now();
 
     Frame frame;
@@ -72,6 +77,10 @@ void Task::updateHook()
         return;
     }
 
+    /**
+     * Write received state to output port
+     * Only send control command after receiving a valid frame
+     */
     if (frame.targetID == variable_speed::TARGET_ADDRESS && frame.sourceID == variable_speed::SOURCE_ADDRESS) {
         if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
             _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
@@ -88,11 +97,6 @@ void Task::updateHook()
             }
         }
     }
-
-    TaskBase::updateHook();
-}
-void Task::processIO()
-{
 }
 void Task::errorHook()
 {

@@ -55,6 +55,11 @@ bool Task::startHook()
 
 void Task::updateHook()
 {
+    TaskBase::updateHook();
+}
+
+void Task::processIO()
+{
     auto now = Time::now();
 
     Frame frame;
@@ -72,27 +77,28 @@ void Task::updateHook()
         return;
     }
 
-    if (frame.targetID == 0x0081 && frame.sourceID == 0x0088) {
-        if (frame.command == 2){
-            _generator_state.write(m_driver->parseGeneratorState(frame.payload, now));
+    /**
+     * Write received state to output port
+     * Only send control command after receiving a valid frame of an expected type coming from the generator
+     * If received frame is valid but not of an expected type or comes from another source, just ignore it and
+     * don't send control command
+     */
+    if (frame.targetID == variable_speed::TARGET_ADDRESS && frame.sourceID == variable_speed::SOURCE_ADDRESS) {
+        if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
+            _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
 
             while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
                 m_driver->sendControlCommand(m_control_cmd);
             }
         }
-        else if (frame.command == 14) {
-            _runtime_state.write(m_driver->parseRuntimeState(frame.payload, now));
+        else if (frame.command == variable_speed::PACKET_RUN_TIME_STATE) {
+            _run_time_state.write(m_driver->parseRunTimeState(frame.payload, now));
 
             while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
                 m_driver->sendControlCommand(m_control_cmd);
             }
         }
     }
-
-    TaskBase::updateHook();
-}
-void Task::processIO()
-{
 }
 void Task::errorHook()
 {

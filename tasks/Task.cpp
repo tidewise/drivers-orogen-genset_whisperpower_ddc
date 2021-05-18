@@ -79,7 +79,9 @@ void Task::processIO()
 
     /**
      * Write received state to output port
-     * Only send control command after receiving a valid frame
+     * Only send control command after receiving a valid frame of an expected type coming from the generator
+     * If received frame is valid but not of an expected type or comes from another source, just ignore it and
+     * don't send control command
      */
     if (frame.targetID == variable_speed::TARGET_ADDRESS && frame.sourceID == variable_speed::SOURCE_ADDRESS) {
         if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){

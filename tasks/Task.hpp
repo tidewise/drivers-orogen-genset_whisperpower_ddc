@@ -33,6 +33,8 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
 
         std::unique_ptr<VariableSpeedMaster> m_driver;
 
+        bool m_running = false;
+
     public:
         /** TaskContext constructor for Task
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.
@@ -109,4 +111,3 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
 }
 
 #endif
-

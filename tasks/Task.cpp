@@ -60,8 +60,8 @@ void Task::updateHook()
 
 void Task::processIO()
 {
+    ControlCommand sentCommand = CONTROL_CMD_NO_COMMAND;
     auto now = Time::now();
-
     Frame frame;
 
     try
@@ -78,25 +78,34 @@ void Task::processIO()
     }
 
     /**
-     * Write received state to output port
-     * Only send control command after receiving a valid frame of an expected type coming from the generator
-     * If received frame is valid but not of an expected type or comes from another source, just ignore it and
+     * Generator starts running when it receives the start command. After that, keep sending the keep_alive command to the generator
+     * until receive stop control command on the input port.
+     * Only send control command after receiving a valid frame coming from the generator.
+     * If received frame is valid but comes from another source or has a different target, just ignore it and
      * don't send control command
      */
-    if (frame.targetID == variable_speed::TARGET_ADDRESS && frame.sourceID == variable_speed::SOURCE_ADDRESS) {
+    if (frame.targetID == variable_speed::PANELS_ADDRESS && frame.sourceID == variable_speed::DDC_CONTROLLER_ADDRESS) {
         if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
             _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
-
-            while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
-                m_driver->sendControlCommand(m_control_cmd);
-            }
         }
         else if (frame.command == variable_speed::PACKET_RUN_TIME_STATE) {
             _run_time_state.write(m_driver->parseRunTimeState(frame.payload, now));
-
-            while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
-                m_driver->sendControlCommand(m_control_cmd);
+        }
+        if (m_running) {
+            sentCommand = CONTROL_CMD_KEEP_ALIVE;
+        }
+        while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
+            if (!m_running && (m_control_cmd == CONTROL_CMD_START)) {
+                sentCommand = CONTROL_CMD_START;
+                m_running = true;
             }
+            else if (m_running && (m_control_cmd == CONTROL_CMD_STOP)) {
+                sentCommand = CONTROL_CMD_STOP;
+                m_running = false;
+            }
+        }
+        if (sentCommand != CONTROL_CMD_NO_COMMAND) {
+            m_driver->sendControlCommand(sentCommand);
         }
     }
 }

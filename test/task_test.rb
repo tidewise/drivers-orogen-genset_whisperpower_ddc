@@ -85,14 +85,20 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         minutes = 0x00
         hours = (0x03 << 16) | (0x02 << 0x08) | 0x01
-        assert_equal Time.at((hours * 60 * 60) + (minutes * 60)), sample.total_run_time
+        assert_equal(
+            Time.at((hours * 60 * 60) + (minutes * 60)),
+            sample.total_run_time
+        )
 
         minutes = 0x04
         hours = (0x07 << 16) | (0x06 << 8) | 0x05
-        assert_equal Time.at((hours * 60 * 60) + (minutes * 60)), sample.historical_run_time
+        assert_equal(
+            Time.at((hours * 60 * 60) + (minutes * 60)),
+            sample.historical_run_time
+        )
     end
 
-    it "sends_the_received_control_command" do
+    it "sends_the_received_start_control_command_if_generator_is_not_running" do
         received_frame = [
             0x81,
             0x00,
@@ -105,6 +111,161 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         sent_frame = expect_execution do
+                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         writer.write Types.iodrivers_base.RawPacket.new(
+                             time: Time.now, data: received_frame
+                         )
+                     end
+                     .to do
+                         have_one_new_sample task.run_time_state_port
+                         have_one_new_sample task.io_raw_out_port
+                     end
+
+        expected_frame = [
+            0x88,
+            0x00,
+            0x81,
+            0x00,
+            0xF7, # PACKET_START_STOP
+            0x01, 0x00, 0x00, 0x00, # CONTROL_CMD_START
+            0x01
+        ]
+
+        expected_frame.each_with_index do |byte, i|
+            assert_equal byte, sent_frame.data[i]
+        end
+    end
+
+    it "sends_keep_alive_control_command_if_generator_is_running" do
+        # First send start command to get it running
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x44
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        sent_frame = expect_execution do
+                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         writer.write Types.iodrivers_base.RawPacket.new(
+                             time: Time.now, data: received_frame
+                         )
+                     end
+                     .to do
+                         have_one_new_sample task.run_time_state_port
+                         have_one_new_sample task.io_raw_out_port
+                     end
+
+        # Now that the generator is running, the component should send the keep_alive
+        # command every time it receives a valid frame
+        sent_frame = expect_execution do
+                         writer.write Types.iodrivers_base.RawPacket.new(
+                             time: Time.now, data: received_frame
+                         )
+                     end
+                     .to do
+                         have_one_new_sample task.run_time_state_port
+                         have_one_new_sample task.io_raw_out_port
+                     end
+
+        expected_frame = [
+            0x88,
+            0x00,
+            0x81,
+            0x00,
+            0xF7, # PACKET_START_STOP
+            0x03, 0x00, 0x00, 0x00, # CONTROL_CMD_KEEP_ALIVE
+            0x03
+        ]
+
+        expected_frame.each_with_index do |byte, i|
+            assert_equal byte, sent_frame.data[i]
+        end
+    end
+
+    it "ignores_the_received_start_control_command_if_generator_is_running" do
+        # First send start command to get it running
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x44
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        sent_frame = expect_execution do
+                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         writer.write Types.iodrivers_base.RawPacket.new(
+                             time: Time.now, data: received_frame
+                         )
+                     end
+                     .to do
+                         have_one_new_sample task.run_time_state_port
+                         have_one_new_sample task.io_raw_out_port
+                     end
+
+        # Now that the generator is running, try to send again the start command, but
+        # verify that it is actually ignored and the keep_alive command is actually sent
+        # to the generator
+        sent_frame = expect_execution do
+                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         writer.write Types.iodrivers_base.RawPacket.new(
+                             time: Time.now, data: received_frame
+                         )
+                     end
+                     .to do
+                         have_one_new_sample task.run_time_state_port
+                         have_one_new_sample task.io_raw_out_port
+                     end
+
+        expected_frame = [
+            0x88,
+            0x00,
+            0x81,
+            0x00,
+            0xF7, # PACKET_START_STOP
+            0x03, 0x00, 0x00, 0x00, # CONTROL_CMD_KEEP_ALIVE
+            0x03
+        ]
+
+        expected_frame.each_with_index do |byte, i|
+            assert_equal byte, sent_frame.data[i]
+        end
+    end
+
+    it "sends_the_received_stop_control_command_if_generator_is_running" do
+        # First send start command to get it running
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x44
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        sent_frame = expect_execution do
+                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         writer.write Types.iodrivers_base.RawPacket.new(
+                             time: Time.now, data: received_frame
+                         )
+                     end
+                     .to do
+                         have_one_new_sample task.run_time_state_port
+                         have_one_new_sample task.io_raw_out_port
+                     end
+
+        # Now that the generator is running, send the stop command
+        sent_frame = expect_execution do
                          syskit_write(task.control_cmd_port, :CONTROL_CMD_STOP)
                          writer.write Types.iodrivers_base.RawPacket.new(
                              time: Time.now, data: received_frame
@@ -116,12 +277,12 @@ describe OroGen.genset_whisperpower_ddc.Task do
                      end
 
         expected_frame = [
-            0x81,
-            0x00,
             0x88,
             0x00,
+            0x81,
+            0x00,
             0xF7, # PACKET_START_STOP
-            0x02, 0x00, 0x00, 0x00,
+            0x02, 0x00, 0x00, 0x00, # CONTROL_CMD_STOP
             0x02
         ]
 
@@ -130,7 +291,31 @@ describe OroGen.genset_whisperpower_ddc.Task do
         end
     end
 
-    it "does_not_send_frame_if_has_not_received_new_command" do
+    it "does_not_send_the_received_stop_control_command_if_generator_is_not_running" do
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x44
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        expect_execution do
+            syskit_write(task.control_cmd_port, :CONTROL_CMD_STOP)
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
+        .to do
+            have_one_new_sample task.run_time_state_port
+            have_no_new_sample task.io_raw_out_port
+        end
+    end
+
+    it "does_not_send_control_command_frame_if_has_not_received_any_command" do
         received_frame = [
             0x81,
             0x00,
@@ -148,6 +333,77 @@ describe OroGen.genset_whisperpower_ddc.Task do
             )
         end
             .to { have_no_new_sample task.io_raw_out_port }
+    end
+
+    it "does_not_send_the_received_control_command_if_has_not_received_a_valid_frame" do
+        # Inverted addresses
+        received_frame = [
+            0x88,
+            0x00,
+            0x81,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x44
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        expect_execution do
+            syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
+        .to do
+            have_no_new_sample task.run_time_state_port
+            have_no_new_sample task.io_raw_out_port
+        end
+
+        # Payload too short
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x44
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        expect_execution do
+            syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
+        .to do
+            have_no_new_sample task.run_time_state_port
+            have_no_new_sample task.io_raw_out_port
+        end
+
+        # Wrong checksum
+        received_frame = [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x45
+        ]
+
+        syskit_wait_ready(writer, component: task)
+        expect_execution do
+            syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: received_frame
+            )
+        end
+        .to do
+            have_no_new_sample task.run_time_state_port
+            have_no_new_sample task.io_raw_out_port
+        end
     end
 
     it "does_not_output_new_state_if_received_source_target_or_command_is_unknown" do

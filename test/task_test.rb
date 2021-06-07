@@ -111,7 +111,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         syskit_write(task.control_cmd_port, true)
                          writer.write Types.iodrivers_base.RawPacket.new(
                              time: Time.now, data: received_frame
                          )
@@ -150,7 +150,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         syskit_write(task.control_cmd_port, true)
                          writer.write Types.iodrivers_base.RawPacket.new(
                              time: Time.now, data: received_frame
                          )
@@ -201,7 +201,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         syskit_write(task.control_cmd_port, true)
                          writer.write Types.iodrivers_base.RawPacket.new(
                              time: Time.now, data: received_frame
                          )
@@ -215,7 +215,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
         # verify that it is actually ignored and the keep_alive command is actually sent
         # to the generator
         sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         syskit_write(task.control_cmd_port, true)
                          writer.write Types.iodrivers_base.RawPacket.new(
                              time: Time.now, data: received_frame
                          )
@@ -254,7 +254,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+                         syskit_write(task.control_cmd_port, true)
                          writer.write Types.iodrivers_base.RawPacket.new(
                              time: Time.now, data: received_frame
                          )
@@ -266,7 +266,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         # Now that the generator is running, send the stop command
         sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, :CONTROL_CMD_STOP)
+                         syskit_write(task.control_cmd_port, false)
                          writer.write Types.iodrivers_base.RawPacket.new(
                              time: Time.now, data: received_frame
                          )
@@ -304,7 +304,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         expect_execution do
-            syskit_write(task.control_cmd_port, :CONTROL_CMD_STOP)
+            syskit_write(task.control_cmd_port, false)
             writer.write Types.iodrivers_base.RawPacket.new(
                 time: Time.now, data: received_frame
             )
@@ -349,7 +349,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         expect_execution do
-            syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+            syskit_write(task.control_cmd_port, true)
             writer.write Types.iodrivers_base.RawPacket.new(
                 time: Time.now, data: received_frame
             )
@@ -372,7 +372,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         expect_execution do
-            syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+            syskit_write(task.control_cmd_port, true)
             writer.write Types.iodrivers_base.RawPacket.new(
                 time: Time.now, data: received_frame
             )
@@ -395,7 +395,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         syskit_wait_ready(writer, component: task)
         expect_execution do
-            syskit_write(task.control_cmd_port, :CONTROL_CMD_START)
+            syskit_write(task.control_cmd_port, true)
             writer.write Types.iodrivers_base.RawPacket.new(
                 time: Time.now, data: received_frame
             )

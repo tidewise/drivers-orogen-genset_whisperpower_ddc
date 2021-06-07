@@ -3,6 +3,7 @@
 #include "Task.hpp"
 #include <iodrivers_base/ConfigureGuard.hpp>
 #include <genset_whisperpower_ddc/VariableSpeed.hpp>
+#include <genset_whisperpower_ddc/ControlCommand.hpp>
 #include <bits/stdc++.h>
 
 using namespace std;
@@ -50,6 +51,9 @@ bool Task::startHook()
 {
     if (! TaskBase::startHook())
         return false;
+
+    m_running = false;
+
     return true;
 }
 
@@ -60,7 +64,6 @@ void Task::updateHook()
 
 void Task::processIO()
 {
-    ControlCommand sentCommand = CONTROL_CMD_NO_COMMAND;
     auto now = Time::now();
     Frame frame;
 
@@ -84,30 +87,18 @@ void Task::processIO()
      * If received frame is valid but comes from another source or has a different target, just ignore it and
      * don't send control command
      */
-    if (frame.targetID == variable_speed::PANELS_ADDRESS && frame.sourceID == variable_speed::DDC_CONTROLLER_ADDRESS) {
-        if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
-            _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
-        }
-        else if (frame.command == variable_speed::PACKET_RUN_TIME_STATE) {
-            _run_time_state.write(m_driver->parseRunTimeState(frame.payload, now));
-        }
-        if (m_running) {
-            sentCommand = CONTROL_CMD_KEEP_ALIVE;
-        }
-        while (_control_cmd.read(m_control_cmd) == RTT::NewData) {
-            if (!m_running && (m_control_cmd == CONTROL_CMD_START)) {
-                sentCommand = CONTROL_CMD_START;
-                m_running = true;
-            }
-            else if (m_running && (m_control_cmd == CONTROL_CMD_STOP)) {
-                sentCommand = CONTROL_CMD_STOP;
-                m_running = false;
-            }
-        }
-        if (sentCommand != CONTROL_CMD_NO_COMMAND) {
-            m_driver->sendControlCommand(sentCommand);
-        }
+    if (frame.targetID != variable_speed::PANELS_ADDRESS || frame.sourceID != variable_speed::DDC_CONTROLLER_ADDRESS) {
+        return;
     }
+        
+    if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
+        _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
+    }
+    else if (frame.command == variable_speed::PACKET_RUN_TIME_STATE) {
+        _run_time_state.write(m_driver->parseRunTimeState(frame.payload, now));
+    }
+
+    m_running = processStartStopCommand();
 }
 void Task::errorHook()
 {
@@ -128,4 +119,27 @@ void Task::cleanupHook()
 void Task::exceptionHook()
 {
     TaskBase::exceptionHook();
+}
+
+bool Task::processStartStopCommand()
+{
+    bool cmd;
+    if (_control_cmd.read(cmd) == RTT::NoData) {
+        return m_running;
+    }
+
+    if (m_running && !cmd) {
+        m_driver->sendControlCommand(CONTROL_CMD_STOP);
+        return cmd;
+    }
+
+    if (!m_running && cmd) {
+        m_driver->sendControlCommand(CONTROL_CMD_START);
+        return cmd;
+    }
+
+    if (m_running) {
+        m_driver->sendControlCommand(CONTROL_CMD_KEEP_ALIVE);
+    }
+    return m_running;
 }

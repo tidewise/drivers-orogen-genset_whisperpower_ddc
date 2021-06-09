@@ -109,7 +109,7 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
 
     private:
         bool processStartStopCommand();
-        GeneratorStatus getCurrentStatus();
+        bool isRunning();
     };
 }
 

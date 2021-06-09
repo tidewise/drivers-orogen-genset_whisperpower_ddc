@@ -52,55 +52,8 @@ bool Task::startHook()
     if (! TaskBase::startHook())
         return false;
 
-    GeneratorStatus currentStatus;
-    currentStatus = getCurrentStatus();
 
-    switch (currentStatus)
-    {
-        case STATUS_NONE:
-            m_running = false;
-            break;
-        case STATUS_PRE_GLOW:
-            m_running = true;
-            break;
-        case STATUS_GLOW:
-            m_running = true;
-            break;
-        case STATUS_START:
-            m_running = true;
-            break;
-        case STATUS_STOP:
-            m_running = false;
-            break;
-        case STATUS_FAILURE:
-            m_running = false;
-            break;
-        case STATUS_PRESENT:
-            m_running = true;
-            break;
-        case STATUS_FIRST:
-            m_running = true;
-            break;
-        case STATUS_ERROR_BYPASS:
-            m_running = true;
-            break;
-        case STATUS_PUMPING:
-            m_running = true;
-            break;
-        case STATUS_RESTART:
-            m_running = false;
-            break;
-        case STATUS_HYDROBOOST:
-            m_running = true;
-            break;
-        case STATUS_UNKNOWN:
-            m_running = false;
-            break;
-        
-        default:
-            m_running = false;
-            break;
-    }
+    m_running = isRunning();
 
     return true;
 }
@@ -192,7 +145,7 @@ bool Task::processStartStopCommand()
     return m_running;
 }
 
-GeneratorStatus Task::getCurrentStatus() {
+bool Task::isRunning() {
     Frame frame;
     bool validFrame = false;
     bool receivedValidFrame = false;
@@ -229,5 +182,5 @@ GeneratorStatus Task::getCurrentStatus() {
             receivedGeneratorState = true;
         }
     }
-    return currentState.generator_status;
+    return currentState.start_signals & GeneratorState::RUN_SIGNAL;
 }

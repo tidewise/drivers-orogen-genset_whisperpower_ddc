@@ -52,7 +52,55 @@ bool Task::startHook()
     if (! TaskBase::startHook())
         return false;
 
-    m_running = false;
+    GeneratorStatus currentStatus;
+    currentStatus = getCurrentStatus();
+
+    switch (currentStatus)
+    {
+        case STATUS_NONE:
+            m_running = false;
+            break;
+        case STATUS_PRE_GLOW:
+            m_running = true;
+            break;
+        case STATUS_GLOW:
+            m_running = true;
+            break;
+        case STATUS_START:
+            m_running = true;
+            break;
+        case STATUS_STOP:
+            m_running = false;
+            break;
+        case STATUS_FAILURE:
+            m_running = false;
+            break;
+        case STATUS_PRESENT:
+            m_running = true;
+            break;
+        case STATUS_FIRST:
+            m_running = true;
+            break;
+        case STATUS_ERROR_BYPASS:
+            m_running = true;
+            break;
+        case STATUS_PUMPING:
+            m_running = true;
+            break;
+        case STATUS_RESTART:
+            m_running = false;
+            break;
+        case STATUS_HYDROBOOST:
+            m_running = true;
+            break;
+        case STATUS_UNKNOWN:
+            m_running = false;
+            break;
+        
+        default:
+            m_running = false;
+            break;
+    }
 
     return true;
 }
@@ -142,4 +190,44 @@ bool Task::processStartStopCommand()
         m_driver->sendControlCommand(CONTROL_CMD_KEEP_ALIVE);
     }
     return m_running;
+}
+
+GeneratorStatus Task::getCurrentStatus() {
+    Frame frame;
+    bool validFrame = false;
+    bool receivedValidFrame = false;
+    bool receivedGeneratorState = false;
+    GeneratorState currentState;
+    base::Time now;
+
+    while (!receivedGeneratorState) {
+        while (!receivedValidFrame) {
+            try {
+                frame = m_driver->readFrame();
+                validFrame = true;
+            }
+            catch(const variable_speed::WrongSize& e) {
+                validFrame = false;
+            }
+            catch(const variable_speed::InvalidChecksum& e) {
+                validFrame = false;
+            }
+            // iodrivers_base may throw this error when receiving a SIGINT, but it can be ignored
+            catch(const iodrivers_base::UnixError& e) {
+                validFrame = false;
+            }
+
+            if (validFrame) {
+                if (frame.targetID == variable_speed::PANELS_ADDRESS && frame.sourceID == variable_speed::DDC_CONTROLLER_ADDRESS) {
+                    receivedValidFrame = true;
+                }
+            }
+        }
+        now = base::Time::now();
+        if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
+            currentState = m_driver->parseGeneratorStateAndModel(frame.payload, now).first;
+            receivedGeneratorState = true;
+        }
+    }
+    return currentState.generator_status;
 }

@@ -37,13 +37,6 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
         bool processStartStopCommand();
         bool isRunning();
 
-        /**
-         * Exception thrown when the time spent by the component in startHook exceeds m_startTimeout
-         */
-        struct startTimeoutError : public std::runtime_error {
-            using std::runtime_error::runtime_error;
-        };
-
     public:
         /** TaskContext constructor for Task
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.

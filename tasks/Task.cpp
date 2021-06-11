@@ -10,6 +10,14 @@ using namespace std;
 using namespace base;
 using namespace genset_whisperpower_ddc;
 
+/**
+ * Exception thrown when the time spent by the component in startHook exceeds
+ * m_startTimeout
+ */
+struct StartTimeoutError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 Task::Task(std::string const& name)
     : TaskBase(name)
 {
@@ -18,8 +26,6 @@ Task::Task(std::string const& name)
 Task::~Task()
 {
 }
-
-
 
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See Task.hpp for more detailed
@@ -43,7 +49,7 @@ bool Task::configureHook()
         return false;
 
     m_driver = move(driver);
-    
+
     guard.commit();
     return true;
 }
@@ -55,7 +61,7 @@ bool Task::startHook()
     try {
         m_running = isRunning();
     }
-    catch(const startTimeoutError& e) {
+    catch(const StartTimeoutError& e) {
         exception(START_TIMEOUT);
         return false;
     }
@@ -97,7 +103,7 @@ void Task::processIO()
     }
 
     auto now = Time::now();
-        
+
     if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
         _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
     }
@@ -152,45 +158,34 @@ bool Task::processStartStopCommand()
 }
 
 bool Task::isRunning() {
-    Frame frame;
-    bool validFrame = false;
-    bool receivedValidFrame = false;
-    bool receivedGeneratorState = false;
-    GeneratorState currentState;
-    base::Time now;
-    base::Time initialTime = base::Time::now();
+    base::Time deadline = base::Time::now() + m_startTimeout;
 
-    while (!receivedGeneratorState) {
-        while (!receivedValidFrame) {
-            if (base::Time::now() >= (initialTime + m_startTimeout)) {
-                throw startTimeoutError("The time spent in startHook() exceeded the timeout");
-            }
-            try {
-                frame = m_driver->readFrame();
-                validFrame = true;
-            }
-            catch(const variable_speed::WrongSize& e) {
-                validFrame = false;
-            }
-            catch(const variable_speed::InvalidChecksum& e) {
-                validFrame = false;
-            }
-            // iodrivers_base may throw this error when receiving a SIGINT, but it can be ignored
-            catch(const iodrivers_base::UnixError& e) {
-                validFrame = false;
-            }
+    while (true) {
+        if (base::Time::now() >= deadline) {
+            throw StartTimeoutError(
+                "timed out waiting for a GENERATOR_STATE_AND_MODEL message "
+                "from the genset"
+            );
+        }
 
-            if (validFrame) {
-                if (frame.targetID == variable_speed::PANELS_ADDRESS && frame.sourceID == variable_speed::DDC_CONTROLLER_ADDRESS) {
-                    receivedValidFrame = true;
-                }
+        try {
+            Frame frame = m_driver->readFrame();
+            if (frame.targetID == variable_speed::PANELS_ADDRESS &&
+                frame.sourceID == variable_speed::DDC_CONTROLLER_ADDRESS &&
+                frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL) {
+
+                GeneratorState currentState = m_driver->parseGeneratorStateAndModel(
+                    frame.payload, base::Time::now()
+                ).first;
+                return currentState.start_signals & GeneratorState::RUN_SIGNAL;
             }
         }
-        now = base::Time::now();
-        if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
-            currentState = m_driver->parseGeneratorStateAndModel(frame.payload, now).first;
-            receivedGeneratorState = true;
-        }
+        catch(const variable_speed::WrongSize& e) { }
+        catch(const variable_speed::InvalidChecksum& e) { }
+        // iodrivers_base may throw this error when receiving a SIGINT, but it
+        // can be ignored
+        catch(const iodrivers_base::UnixError& e) { }
     }
-    return currentState.start_signals & GeneratorState::RUN_SIGNAL;
+
+    // Never reached
 }

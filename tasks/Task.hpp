@@ -29,10 +29,20 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
     {
 	friend class TaskBase;
     protected:
-
         std::unique_ptr<VariableSpeedMaster> m_driver;
 
         bool m_running;
+        base::Time m_startTimeout = base::Time::fromSeconds(3);
+
+        bool processStartStopCommand();
+        bool isRunning();
+
+        /**
+         * Exception thrown when the time spent by the component in startHook exceeds m_startTimeout
+         */
+        struct startTimeoutError : public std::runtime_error {
+            using std::runtime_error::runtime_error;
+        };
 
     public:
         /** TaskContext constructor for Task
@@ -106,10 +116,6 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
         void cleanupHook();
 
         void exceptionHook();
-
-    private:
-        bool processStartStopCommand();
-        bool isRunning();
     };
 }
 

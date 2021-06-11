@@ -26,4 +26,6 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     output_port "generator_state", "/genset_whisperpower_ddc/GeneratorState"
 
     output_port "run_time_state", "/genset_whisperpower_ddc/RunTimeState"
+
+    exception_states "START_TIMEOUT"
 end

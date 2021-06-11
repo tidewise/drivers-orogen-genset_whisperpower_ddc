@@ -52,8 +52,13 @@ bool Task::startHook()
     if (! TaskBase::startHook())
         return false;
 
-
-    m_running = isRunning();
+    try {
+        m_running = isRunning();
+    }
+    catch(const startTimeoutError& e) {
+        exception(START_TIMEOUT);
+        return false;
+    }
 
     return true;
 }
@@ -65,7 +70,6 @@ void Task::updateHook()
 
 void Task::processIO()
 {
-    auto now = Time::now();
     Frame frame;
 
     try
@@ -91,6 +95,8 @@ void Task::processIO()
     if (frame.targetID != variable_speed::PANELS_ADDRESS || frame.sourceID != variable_speed::DDC_CONTROLLER_ADDRESS) {
         return;
     }
+
+    auto now = Time::now();
         
     if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
         _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
@@ -152,9 +158,13 @@ bool Task::isRunning() {
     bool receivedGeneratorState = false;
     GeneratorState currentState;
     base::Time now;
+    base::Time initialTime = base::Time::now();
 
     while (!receivedGeneratorState) {
         while (!receivedValidFrame) {
+            if (base::Time::now() >= (initialTime + m_startTimeout)) {
+                throw startTimeoutError("The time spent in startHook() exceeded the timeout");
+            }
             try {
                 frame = m_driver->readFrame();
                 validFrame = true;

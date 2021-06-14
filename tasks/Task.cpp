@@ -140,6 +140,9 @@ bool Task::processStartStopCommand()
 {
     bool cmd;
     if (_control_cmd.read(cmd) == RTT::NoData) {
+        if (m_running) {
+            m_driver->sendControlCommand(CONTROL_CMD_KEEP_ALIVE);
+        }
         return m_running;
     }
 

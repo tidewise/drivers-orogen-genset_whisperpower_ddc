@@ -1,0 +1,15 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "orogen",
+            "request": "launch",
+            "name": "(drivers/orogen/genset_whisperpower_ddc) genset_whisperpower_ddc::Task",
+            "deploy": "genset_whisperpower_ddc::Task",
+            "deployAs": "genset_whisperpower_ddc"
+        }
+    ]
+}

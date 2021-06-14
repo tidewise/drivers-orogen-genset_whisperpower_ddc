@@ -4,7 +4,8 @@
 #include <iodrivers_base/ConfigureGuard.hpp>
 #include <genset_whisperpower_ddc/VariableSpeed.hpp>
 #include <genset_whisperpower_ddc/ControlCommand.hpp>
-#include <bits/stdc++.h>
+
+#include <base-logging/Logging.hpp>
 
 using namespace std;
 using namespace base;
@@ -62,6 +63,7 @@ bool Task::startHook()
         m_running = isRunning();
     }
     catch(const StartTimeoutError& e) {
+        LOG_ERROR_S << e.what() << std::endl;
         exception(START_TIMEOUT);
         return false;
     }

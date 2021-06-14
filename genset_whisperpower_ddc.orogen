@@ -5,6 +5,7 @@ name "genset_whisperpower_ddc"
 import_types_from "std"
 import_types_from "base"
 
+using_library "base-logging"
 using_library "genset_whisperpower_ddc"
 
 import_types_from "genset_whisperpower_ddc/GeneratorState.hpp"

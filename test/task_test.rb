@@ -714,10 +714,12 @@ describe OroGen.genset_whisperpower_ddc.Task do
     def start_task(task, start_frame: self.start_frame)
         syskit_configure(task)
         expect_execution { task.start! }
+            .join_all_waiting_work(false)
             .poll do
                 writer.write Types.iodrivers_base.RawPacket.new(
                     time: Time.now, data: start_frame
                 )
+                sleep 0.1
             end
             .to { emit task.start_event }
     end

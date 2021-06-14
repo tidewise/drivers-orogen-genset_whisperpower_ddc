@@ -27,7 +27,9 @@ describe OroGen.genset_whisperpower_ddc.Task do
     end
 
     it "outputs new generator state when receives generator state and model frame" do
-        received_frame = [
+        start_task(task, start_frame_running)
+
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -37,24 +39,24 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x38
         ]
 
-        start_task(task)
-        sample = expect_execution do
-                     writer.write Types.iodrivers_base.RawPacket.new(
-                         time: Time.now, data: received_frame
-                     )
-                 end
-                 .to { have_one_new_sample task.generator_state_port }
+        sample = assert_driver_processes_frame(frame, task.generator_state_port)
 
-        assert_equal (((2 * Math::PI) / 60) * ((0x01 << 8) | 0x00)).round(5),
-                     sample.rotation_speed.round(5)
-        assert_equal (0.01 * ((0x03 << 8) | 0x02)).round(5),
-                     sample.start_battery_voltage.round(5)
+        assert_equal(
+            (((2 * Math::PI) / 60) * ((0x01 << 8) | 0x00)).round(5),
+            sample.rotation_speed.round(5)
+        )
+        assert_equal(
+            (0.01 * ((0x03 << 8) | 0x02)).round(5),
+            sample.start_battery_voltage.round(5)
+        )
         assert_equal 0x0504, sample.alarms
         assert_equal 0x05, sample.start_signals
         assert_equal :STATUS_PRESENT, sample.generator_status
     end
 
     it "outputs new run time state when receives run time state frame" do
+        start_task(task, start_frame_running)
+
         frame = [
             0x81,
             0x00,
@@ -65,7 +67,6 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        start_task(task)
         sample = assert_driver_processes_frame(frame, task.run_time_state_port)
 
         minutes = 0x00
@@ -83,18 +84,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
         )
     end
 
-    it "sends_the_received_start_control_command_if_generator_is_not_running" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "sends the received start control command if generator is not running" do
+        start_task(task, start_frame_stopped)
 
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -104,26 +97,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, true)
-                         writer.write Types.iodrivers_base.RawPacket.new(
-                             time: Time.now, data: received_frame
-                         )
-                     end
-                     .to do
-                         have_one_new_sample task.run_time_state_port
-                         have_one_new_sample task.io_raw_out_port
-                     end
+        sent_frame = assert_driver_sends_command_frame(frame, command: true)
 
         expected_frame = [
             0x88,
@@ -140,18 +114,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
         end
     end
 
-    it "sends_keep_alive_control_command_if_generator_is_running" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "sends keep alive command if receives a valid frame when generator is running" do
+        start_task(task, start_frame_running)
 
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -161,39 +127,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        # First send start command to get it running
-        sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, true)
-                         writer.write Types.iodrivers_base.RawPacket.new(
-                             time: Time.now, data: received_frame
-                         )
-                     end
-                     .to do
-                         have_one_new_sample task.run_time_state_port
-                         have_one_new_sample task.io_raw_out_port
-                     end
-
-        # Now that the generator is running, the component should send the keep_alive
-        # command every time it receives a valid frame
-        sent_frame = expect_execution do
-                         writer.write Types.iodrivers_base.RawPacket.new(
-                             time: Time.now, data: received_frame
-                         )
-                     end
-                     .to do
-                         have_one_new_sample task.run_time_state_port
-                         have_one_new_sample task.io_raw_out_port
-                     end
+        # no command is given to control_cmd port
+        sent_frame = assert_driver_sends_command_frame(frame)
 
         expected_frame = [
             0x88,
@@ -210,18 +145,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
         end
     end
 
-    it "ignores_the_received_start_control_command_if_generator_is_running" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "sends keep alive if receives start control command when generator is running" do
+        start_task(task, start_frame_running)
 
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -231,41 +158,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        # First send start command to get it running
-        sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, true)
-                         writer.write Types.iodrivers_base.RawPacket.new(
-                             time: Time.now, data: received_frame
-                         )
-                     end
-                     .to do
-                         have_one_new_sample task.run_time_state_port
-                         have_one_new_sample task.io_raw_out_port
-                     end
-
-        # Now that the generator is running, try to send again the start command, but
-        # verify that it is actually ignored and the keep_alive command is actually sent
-        # to the generator
-        sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, true)
-                         writer.write Types.iodrivers_base.RawPacket.new(
-                             time: Time.now, data: received_frame
-                         )
-                     end
-                     .to do
-                         have_one_new_sample task.run_time_state_port
-                         have_one_new_sample task.io_raw_out_port
-                     end
+        sent_frame = assert_driver_sends_command_frame(frame, command: true)
 
         expected_frame = [
             0x88,
@@ -282,18 +175,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
         end
     end
 
-    it "sends_the_received_stop_control_command_if_generator_is_running" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "sends the received stop control command if generator is running" do
+        start_task(task, start_frame_running)
 
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -303,39 +188,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        # First send start command to get it running
-        sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, true)
-                         writer.write Types.iodrivers_base.RawPacket.new(
-                             time: Time.now, data: received_frame
-                         )
-                     end
-                     .to do
-                         have_one_new_sample task.run_time_state_port
-                         have_one_new_sample task.io_raw_out_port
-                     end
-
-        # Now that the generator is running, send the stop command
-        sent_frame = expect_execution do
-                         syskit_write(task.control_cmd_port, false)
-                         writer.write Types.iodrivers_base.RawPacket.new(
-                             time: Time.now, data: received_frame
-                         )
-                     end
-                     .to do
-                         have_one_new_sample task.run_time_state_port
-                         have_one_new_sample task.io_raw_out_port
-                     end
+        sent_frame = assert_driver_sends_command_frame(frame, command: false)
 
         expected_frame = [
             0x88,
@@ -352,18 +205,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
         end
     end
 
-    it "does_not_send_the_received_stop_control_command_if_generator_is_not_running" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "does not send the received stop control command if generator is stopped" do
+        start_task(task, start_frame_stopped)
 
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -373,40 +218,13 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        expect_execution do
-            syskit_write(task.control_cmd_port, false)
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-        .to do
-            have_one_new_sample task.run_time_state_port
-            have_no_new_sample task.io_raw_out_port
-        end
+        assert_driver_does_not_send_command_frame(frame, command: false)
     end
 
-    it "does_not_send_control_command_frame_if_has_not_received_any_command" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "does not send command frame if is stopped and has not received any command" do
+        start_task(task, start_frame_stopped)
 
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -416,37 +234,14 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        expect_execution do
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-            .to { have_no_new_sample task.io_raw_out_port }
+        assert_driver_does_not_send_command_frame(frame)
     end
 
-    it "does_not_send_the_received_control_command_if_has_not_received_a_valid_frame" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "does not send the received control command if has not received a valid frame" do
+        start_task(task, start_frame_stopped)
 
         # Inverted addresses
-        received_frame = [
+        frame = [
             0x88,
             0x00,
             0x81,
@@ -456,29 +251,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        expect_execution do
-            syskit_write(task.control_cmd_port, true)
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-        .to do
-            have_no_new_sample task.run_time_state_port
-            have_no_new_sample task.io_raw_out_port
-        end
+        assert_driver_does_not_send_command_frame(frame, command: true)
 
         # Payload too short
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -488,33 +264,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        writer.write Types.iodrivers_base.RawPacket.new(
-            time: Time.now, data: start_frame
-        )
-
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        expect_execution do
-            syskit_write(task.control_cmd_port, true)
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-        .to do
-            have_no_new_sample task.run_time_state_port
-            have_no_new_sample task.io_raw_out_port
-        end
+        assert_driver_does_not_send_command_frame(frame, command: true)
 
         # Wrong checksum
-        received_frame = [
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -524,153 +277,67 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x45
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
-
-        expect_execution do
-            syskit_write(task.control_cmd_port, true)
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-        .to do
-            have_no_new_sample task.run_time_state_port
-            have_no_new_sample task.io_raw_out_port
-        end
+        assert_driver_does_not_send_command_frame(frame, command: true)
     end
 
-    it "does_not_output_new_state_if_received_source_target_or_command_is_unknown" do
-        start_frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
-        ]
+    it "does not output new state if received frame is invalid" do
+        start_task(task, start_frame_stopped)
 
-        received_frame = [
+        # Wrong target address
+        frame = [
             0xFF,
             0xFF,
             0x88,
             0x00,
             0x0E,
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
+            0xC1
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
+        assert_driver_does_not_process_frame(frame, task.run_time_state_port)
 
-        expect_execution do
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-            .to { have_no_new_sample task.run_time_state_port }
-
-        received_frame = [
+        # Wrong source address
+        frame = [
             0x81,
             0x00,
             0xFF,
             0xFF,
             0x0E,
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
+            0xBA
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
+        assert_driver_does_not_process_frame(frame, task.run_time_state_port)
 
-        expect_execution do
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-            .to { have_no_new_sample task.run_time_state_port }
-
-        received_frame = [
+        # Unkown command
+        frame = [
             0x81,
             0x00,
             0x88,
             0x00,
             0xFF,
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
+            0x35
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
+        assert_driver_does_not_process_frame(frame, task.run_time_state_port)
+        assert_driver_does_not_process_frame(frame, task.generator_state_port)
 
-        expect_execution do
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-            .to { have_no_new_sample task.run_time_state_port }
-    end
-
-    it "does_not_output_new_state_when_reads_invalid_frame" do
-        received_frame = [
+        # Invalid checksum
+        frame = [
             0x81,
             0x00,
             0x88,
             0x00,
             0x02,
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x00, 0x08, 0x09,
-            0x39 # invalid checksum
+            0xFF
         ]
 
-        syskit_configure(task)
-        start_writer = syskit_create_writer(task.io_raw_in_port)
-        expect_execution { task.start! }
-            .poll do
-                start_writer.write Types.iodrivers_base.RawPacket.new(
-                    time: Time.now, data: start_frame
-                )
-            end
-            .to { emit task.start_event }
+        assert_driver_does_not_process_frame(frame, task.generator_state_port)
 
-        expect_execution do
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-        .to do
-            have_no_new_sample task.generator_state_port
-        end
-
-        # frame too long
-        received_frame = [
+        # Frame too long
+        frame = [
             0x81,
             0x00,
             0x88,
@@ -680,14 +347,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x42
         ]
 
-        expect_execution do
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: received_frame
-            )
-        end
-        .to do
-            have_no_new_sample task.generator_state_port
-        end
+        assert_driver_does_not_process_frame(frame, task.generator_state_port)
     end
 
     def iodrivers_base_prepare(model)
@@ -699,19 +359,31 @@ describe OroGen.genset_whisperpower_ddc.Task do
         [task, reader, writer]
     end
 
-    def start_frame
+    def start_frame_running
         [
             0x81,
             0x00,
             0x88,
             0x00,
             0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x00, 0x08, 0x09,
-            0x2B
+            0x00, 0x01, 0x02, 0x03, 0x04, 0xFF, 0x06, 0x07, 0x08, 0x09,
+            0x32
         ]
     end
 
-    def start_task(task, start_frame: self.start_frame)
+    def start_frame_stopped
+        [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x00, 0x06, 0x07, 0x08, 0x09,
+            0x33
+        ]
+    end
+
+    def start_task(task, start_frame)
         syskit_configure(task)
         expect_execution { task.start! }
             .join_all_waiting_work(false)
@@ -722,5 +394,51 @@ describe OroGen.genset_whisperpower_ddc.Task do
                 sleep 0.1
             end
             .to { emit task.start_event }
+    end
+
+    def assert_driver_processes_frame(frame, port)
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: frame
+            )
+        end
+        .to do
+            have_one_new_sample port
+        end
+    end
+
+    def assert_driver_does_not_process_frame(frame, port)
+        expect_execution do
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: frame
+            )
+        end
+        .to do
+            have_no_new_sample port
+        end
+    end
+
+    def assert_driver_sends_command_frame(frame, command: nil)
+        expect_execution do
+            syskit_write(task.control_cmd_port, command) unless command.nil?
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: frame
+            )
+        end
+        .to do
+            have_one_new_sample task.io_raw_out_port
+        end
+    end
+
+    def assert_driver_does_not_send_command_frame(frame, command: nil)
+        expect_execution do
+            syskit_write(task.control_cmd_port, command) unless command.nil?
+            writer.write Types.iodrivers_base.RawPacket.new(
+                time: Time.now, data: frame
+            )
+        end
+        .to do
+            have_no_new_sample task.io_raw_out_port
+        end
     end
 end

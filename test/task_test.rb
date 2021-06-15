@@ -41,13 +41,13 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
         sample = assert_driver_processes_frame(frame, task.generator_state_port)
 
-        assert_equal(
-            (((2 * Math::PI) / 60) * ((0x01 << 8) | 0x00)).round(5),
-            sample.rotation_speed.round(5)
+        assert_in_delta(
+            ((2 * Math::PI) / 60) * ((0x01 << 8) | 0x00),
+            sample.rotation_speed
         )
-        assert_equal(
-            (0.01 * ((0x03 << 8) | 0x02)).round(5),
-            sample.start_battery_voltage.round(5)
+        assert_in_delta(
+            0.01 * ((0x03 << 8) | 0x02),
+            sample.start_battery_voltage
         )
         assert_equal 0x0504, sample.alarms
         assert_equal 0x05, sample.start_signals

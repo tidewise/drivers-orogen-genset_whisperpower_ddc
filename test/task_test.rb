@@ -110,6 +110,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
     it "does not send the received control command if has not received a valid frame" do
         start_task(task, stopped_state_frame)
 
+        syskit_write(task.control_cmd_port, true)
+
         # Inverted addresses
         frame = [
             0x88,
@@ -121,7 +123,6 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_write(task.control_cmd_port, true)
         assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
 
         # Payload too short
@@ -135,7 +136,6 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        syskit_write(task.control_cmd_port, true)
         assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
 
         # Wrong checksum
@@ -149,7 +149,6 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x45
         ]
 
-        syskit_write(task.control_cmd_port, true)
         assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
     end
 
@@ -227,9 +226,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
         start_task(task, stopped_state_frame)
 
         syskit_write(task.control_cmd_port, false)
-        assert_driver_does_not_process_frame(run_time_state_frame, task.io_raw_out_port)
 
-        syskit_write(task.control_cmd_port, false)
+        assert_driver_does_not_process_frame(run_time_state_frame, task.io_raw_out_port)
         assert_driver_sends_frame(running_state_frame, stop_command_frame)
     end
 
@@ -237,9 +235,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
         start_task(task, running_state_frame)
 
         syskit_write(task.control_cmd_port, true)
-        assert_driver_sends_frame(run_time_state_frame, keep_alive_command_frame)
 
-        syskit_write(task.control_cmd_port, true)
+        assert_driver_sends_frame(run_time_state_frame, keep_alive_command_frame)
         assert_driver_sends_frame(stopped_state_frame, start_command_frame)
     end
 

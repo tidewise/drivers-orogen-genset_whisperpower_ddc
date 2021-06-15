@@ -4,6 +4,7 @@
 #include <iodrivers_base/ConfigureGuard.hpp>
 #include <genset_whisperpower_ddc/VariableSpeed.hpp>
 #include <genset_whisperpower_ddc/ControlCommand.hpp>
+#include <fstream>
 
 #include <base-logging/Logging.hpp>
 
@@ -59,6 +60,8 @@ bool Task::startHook()
     if (! TaskBase::startHook())
         return false;
 
+    std::cout << "RUNNING: " << endl;
+
     try {
         m_running = isRunning();
     }
@@ -107,13 +110,15 @@ void Task::processIO()
     auto now = Time::now();
 
     if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
-        _generator_state.write(m_driver->parseGeneratorStateAndModel(frame.payload, now).first);
+        GeneratorState currentState = m_driver->parseGeneratorStateAndModel(frame.payload, now).first;
+        m_running = isRunning(currentState);
+        _generator_state.write(currentState);
     }
     else if (frame.command == variable_speed::PACKET_RUN_TIME_STATE) {
         _run_time_state.write(m_driver->parseRunTimeState(frame.payload, now));
     }
 
-    m_running = processStartStopCommand();
+    processStartStopCommand();
 }
 void Task::errorHook()
 {
@@ -136,30 +141,30 @@ void Task::exceptionHook()
     TaskBase::exceptionHook();
 }
 
-bool Task::processStartStopCommand()
+void Task::processStartStopCommand()
 {
     bool cmd;
     if (_control_cmd.read(cmd) == RTT::NoData) {
-        if (m_running) {
-            m_driver->sendControlCommand(CONTROL_CMD_KEEP_ALIVE);
-        }
-        return m_running;
+        return;
     }
 
     if (m_running && !cmd) {
         m_driver->sendControlCommand(CONTROL_CMD_STOP);
-        return cmd;
+        return;
     }
 
     if (!m_running && cmd) {
         m_driver->sendControlCommand(CONTROL_CMD_START);
-        return cmd;
+        return;
     }
 
     if (m_running) {
         m_driver->sendControlCommand(CONTROL_CMD_KEEP_ALIVE);
     }
-    return m_running;
+}
+
+bool Task::isRunning(GeneratorState state){
+    return state.start_signals & GeneratorState::RUN_SIGNAL;
 }
 
 bool Task::isRunning() {

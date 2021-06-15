@@ -34,8 +34,9 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
         bool m_running;
         base::Time m_startTimeout = base::Time::fromSeconds(3);
 
-        bool processStartStopCommand();
+        void processStartStopCommand();
         bool isRunning();
+        bool isRunning(GeneratorState state);
 
     public:
         /** TaskContext constructor for Task

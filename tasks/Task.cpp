@@ -4,7 +4,6 @@
 #include <iodrivers_base/ConfigureGuard.hpp>
 #include <genset_whisperpower_ddc/VariableSpeed.hpp>
 #include <genset_whisperpower_ddc/ControlCommand.hpp>
-#include <fstream>
 
 #include <base-logging/Logging.hpp>
 
@@ -59,8 +58,6 @@ bool Task::startHook()
 {
     if (! TaskBase::startHook())
         return false;
-
-    std::cout << "RUNNING: " << endl;
 
     try {
         m_running = isRunning();

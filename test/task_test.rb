@@ -14,7 +14,6 @@ describe OroGen.genset_whisperpower_ddc.Task do
                   .deployed_as("genset_whisperpower_ddc")
         )
         @task.properties.io_read_timeout = Time.at(2)
-        self.expect_execution_default_timeout = 30
     end
 
     after do
@@ -26,19 +25,11 @@ describe OroGen.genset_whisperpower_ddc.Task do
     end
 
     it "outputs new generator state when receives generator state and model frame" do
-        start_task(task, start_frame_running)
+        start_task(task, running_state_frame)
 
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x38
-        ]
-
-        sample = assert_driver_processes_frame(frame, task.generator_state_port)
+        sample = assert_driver_processes_frame(
+            state_and_model_frame, task.generator_state_port
+        )
 
         assert_in_delta(
             ((2 * Math::PI) / 60) * ((0x01 << 8) | 0x00),
@@ -54,19 +45,11 @@ describe OroGen.genset_whisperpower_ddc.Task do
     end
 
     it "outputs new run time state when receives run time state frame" do
-        start_task(task, start_frame_running)
+        start_task(task, running_state_frame)
 
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x0E, # PACKET_RUN_TIME_STATE
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
-        ]
-
-        sample = assert_driver_processes_frame(frame, task.run_time_state_port)
+        sample = assert_driver_processes_frame(
+            run_time_state_frame, task.run_time_state_port
+        )
 
         minutes = 0x00
         hours = (0x03 << 16) | (0x02 << 0x08) | 0x01
@@ -84,164 +67,48 @@ describe OroGen.genset_whisperpower_ddc.Task do
     end
 
     it "sends the received start control command if generator is not running" do
-        start_task(task, start_frame_stopped)
-
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x0E, # PACKET_RUN_TIME_STATE
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
-        ]
+        start_task(task, stopped_state_frame)
 
         syskit_write(task.control_cmd_port, true)
-        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
-
-        expected_frame = [
-            0x88,
-            0x00,
-            0x81,
-            0x00,
-            0xF7, # PACKET_START_STOP
-            0x01, 0x00, 0x00, 0x00, # CONTROL_CMD_START
-            0x01
-        ]
-
-        expected_frame.each_with_index do |byte, i|
-            assert_equal byte, sent_frame.data[i]
-        end
+        assert_driver_sends_frame(run_time_state_frame, start_command_frame)
     end
 
     it "sends keep alive command if receives a valid frame when generator is running" do
-        start_task(task, start_frame_running)
+        start_task(task, running_state_frame)
 
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x0E, # PACKET_RUN_TIME_STATE
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
-        ]
-
-        # no command is given to control_cmd port
-        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
-
-        expected_frame = [
-            0x88,
-            0x00,
-            0x81,
-            0x00,
-            0xF7, # PACKET_START_STOP
-            0x03, 0x00, 0x00, 0x00, # CONTROL_CMD_KEEP_ALIVE
-            0x03
-        ]
-
-        expected_frame.each_with_index do |byte, i|
-            assert_equal byte, sent_frame.data[i]
-        end
+        syskit_write(task.control_cmd_port, true)
+        assert_driver_sends_frame(run_time_state_frame, keep_alive_command_frame)
     end
 
     it "sends keep alive if receives start control command when generator is running" do
-        start_task(task, start_frame_running)
-
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x0E, # PACKET_RUN_TIME_STATE
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
-        ]
+        start_task(task, running_state_frame)
 
         syskit_write(task.control_cmd_port, true)
-        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
-
-        expected_frame = [
-            0x88,
-            0x00,
-            0x81,
-            0x00,
-            0xF7, # PACKET_START_STOP
-            0x03, 0x00, 0x00, 0x00, # CONTROL_CMD_KEEP_ALIVE
-            0x03
-        ]
-
-        expected_frame.each_with_index do |byte, i|
-            assert_equal byte, sent_frame.data[i]
-        end
+        assert_driver_sends_frame(run_time_state_frame, keep_alive_command_frame)
     end
 
     it "sends the received stop control command if generator is running" do
-        start_task(task, start_frame_running)
-
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x0E, # PACKET_RUN_TIME_STATE
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
-        ]
+        start_task(task, running_state_frame)
 
         syskit_write(task.control_cmd_port, false)
-        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
-
-        expected_frame = [
-            0x88,
-            0x00,
-            0x81,
-            0x00,
-            0xF7, # PACKET_START_STOP
-            0x02, 0x00, 0x00, 0x00, # CONTROL_CMD_STOP
-            0x02
-        ]
-
-        expected_frame.each_with_index do |byte, i|
-            assert_equal byte, sent_frame.data[i]
-        end
+        assert_driver_sends_frame(run_time_state_frame, stop_command_frame)
     end
 
     it "does not send the received stop control command if generator is stopped" do
-        start_task(task, start_frame_stopped)
-
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x0E, # PACKET_RUN_TIME_STATE
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
-        ]
+        start_task(task, stopped_state_frame)
 
         syskit_write(task.control_cmd_port, false)
-        assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
+        assert_driver_does_not_process_frame(run_time_state_frame, task.io_raw_out_port)
     end
 
-    it "does not send command frame if is stopped and has not received any command" do
-        start_task(task, start_frame_stopped)
+    it "does not send command frame if has not received any command" do
+        start_task(task, running_state_frame)
 
-        frame = [
-            0x81,
-            0x00,
-            0x88,
-            0x00,
-            0x0E,
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-            0x44
-        ]
-
-        assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
+        assert_driver_does_not_process_frame(run_time_state_frame, task.io_raw_out_port)
     end
 
     it "does not send the received control command if has not received a valid frame" do
-        start_task(task, start_frame_stopped)
+        start_task(task, stopped_state_frame)
 
         # Inverted addresses
         frame = [
@@ -287,7 +154,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
     end
 
     it "does not output new state if received frame is invalid" do
-        start_task(task, start_frame_stopped)
+        start_task(task, stopped_state_frame)
 
         # Wrong target address
         frame = [
@@ -356,6 +223,26 @@ describe OroGen.genset_whisperpower_ddc.Task do
         assert_driver_does_not_process_frame(frame, task.generator_state_port)
     end
 
+    it "changes to running state if receives a running state frame while stopped" do
+        start_task(task, stopped_state_frame)
+
+        syskit_write(task.control_cmd_port, false)
+        assert_driver_does_not_process_frame(run_time_state_frame, task.io_raw_out_port)
+
+        syskit_write(task.control_cmd_port, false)
+        assert_driver_sends_frame(running_state_frame, stop_command_frame)
+    end
+
+    it "changes to stopped state if receives a stopped state frame while running" do
+        start_task(task, running_state_frame)
+
+        syskit_write(task.control_cmd_port, true)
+        assert_driver_sends_frame(run_time_state_frame, keep_alive_command_frame)
+
+        syskit_write(task.control_cmd_port, true)
+        assert_driver_sends_frame(stopped_state_frame, start_command_frame)
+    end
+
     def iodrivers_base_prepare(model)
         task = syskit_deploy(model)
         syskit_start_execution_agents(task)
@@ -364,7 +251,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
         [task, writer]
     end
 
-    def start_frame_running
+    def running_state_frame
         [
             0x81,
             0x00,
@@ -376,7 +263,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
         ]
     end
 
-    def start_frame_stopped
+    def stopped_state_frame
         [
             0x81,
             0x00,
@@ -385,6 +272,66 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x02, # PACKET_GENERATOR_STATE_AND_MODEL
             0x00, 0x01, 0x02, 0x03, 0x04, 0x00, 0x06, 0x07, 0x08, 0x09,
             0x33
+        ]
+    end
+
+    def state_and_model_frame
+        [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x02, # PACKET_GENERATOR_STATE_AND_MODEL
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x38
+        ]
+    end
+
+    def run_time_state_frame
+        [
+            0x81,
+            0x00,
+            0x88,
+            0x00,
+            0x0E, # PACKET_RUN_TIME_STATE
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+            0x44
+        ]
+    end
+
+    def start_command_frame
+        [
+            0x88,
+            0x00,
+            0x81,
+            0x00,
+            0xF7, # PACKET_START_STOP
+            0x01, 0x00, 0x00, 0x00, # CONTROL_CMD_START
+            0x01
+        ]
+    end
+
+    def stop_command_frame
+        [
+            0x88,
+            0x00,
+            0x81,
+            0x00,
+            0xF7, # PACKET_START_STOP
+            0x02, 0x00, 0x00, 0x00, # CONTROL_CMD_STOP
+            0x02
+        ]
+    end
+
+    def keep_alive_command_frame
+        [
+            0x88,
+            0x00,
+            0x81,
+            0x00,
+            0xF7, # PACKET_START_STOP
+            0x03, 0x00, 0x00, 0x00, # CONTROL_CMD_KEEP_ALIVE
+            0x03
         ]
     end
 
@@ -403,13 +350,32 @@ describe OroGen.genset_whisperpower_ddc.Task do
 
     def assert_driver_processes_frame(frame, port)
         expect_execution do
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: frame
-            )
-        end
-        .to do
-            have_one_new_sample port
-        end
+                writer.write Types.iodrivers_base.RawPacket.new(
+                    time: Time.now, data: frame
+                )
+            end
+            .to do
+                have_one_new_sample port
+            end
+    end
+
+    def assert_driver_sends_frame(received_frame, expected)
+        expect_execution
+            .join_all_waiting_work(false)
+            .poll do
+                writer.write Types.iodrivers_base.RawPacket.new(
+                    time: Time.now, data: received_frame
+                )
+                sleep 0.1
+            end
+            .to do
+                have_one_new_sample(task.io_raw_out_port)
+                    .matching do |sample|
+                        expected.each_with_index do |byte, i|
+                            assert_equal byte, sample.data[i]
+                        end
+                    end
+            end
     end
 
     def assert_driver_does_not_process_frame(frame, port)

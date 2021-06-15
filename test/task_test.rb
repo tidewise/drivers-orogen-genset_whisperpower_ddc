@@ -6,11 +6,10 @@ describe OroGen.genset_whisperpower_ddc.Task do
     run_live
 
     attr_reader :task
-    attr_reader :reader
     attr_reader :writer
 
     before do
-        @task, @reader, @writer = iodrivers_base_prepare(
+        @task, @writer = iodrivers_base_prepare(
             OroGen.genset_whisperpower_ddc.Task
                   .deployed_as("genset_whisperpower_ddc")
         )
@@ -97,7 +96,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        sent_frame = assert_driver_sends_command_frame(frame, command: true)
+        syskit_write(task.control_cmd_port, true)
+        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
 
         expected_frame = [
             0x88,
@@ -128,7 +128,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
         ]
 
         # no command is given to control_cmd port
-        sent_frame = assert_driver_sends_command_frame(frame)
+        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
 
         expected_frame = [
             0x88,
@@ -158,7 +158,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        sent_frame = assert_driver_sends_command_frame(frame, command: true)
+        syskit_write(task.control_cmd_port, true)
+        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
 
         expected_frame = [
             0x88,
@@ -188,7 +189,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        sent_frame = assert_driver_sends_command_frame(frame, command: false)
+        syskit_write(task.control_cmd_port, false)
+        sent_frame = assert_driver_processes_frame(frame, task.io_raw_out_port)
 
         expected_frame = [
             0x88,
@@ -218,7 +220,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        assert_driver_does_not_send_command_frame(frame, command: false)
+        syskit_write(task.control_cmd_port, false)
+        assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
     end
 
     it "does not send command frame if is stopped and has not received any command" do
@@ -234,7 +237,7 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        assert_driver_does_not_send_command_frame(frame)
+        assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
     end
 
     it "does not send the received control command if has not received a valid frame" do
@@ -251,7 +254,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        assert_driver_does_not_send_command_frame(frame, command: true)
+        syskit_write(task.control_cmd_port, true)
+        assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
 
         # Payload too short
         frame = [
@@ -264,7 +268,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x44
         ]
 
-        assert_driver_does_not_send_command_frame(frame, command: true)
+        syskit_write(task.control_cmd_port, true)
+        assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
 
         # Wrong checksum
         frame = [
@@ -277,7 +282,8 @@ describe OroGen.genset_whisperpower_ddc.Task do
             0x45
         ]
 
-        assert_driver_does_not_send_command_frame(frame, command: true)
+        syskit_write(task.control_cmd_port, true)
+        assert_driver_does_not_process_frame(frame, task.io_raw_out_port)
     end
 
     it "does not output new state if received frame is invalid" do
@@ -353,10 +359,9 @@ describe OroGen.genset_whisperpower_ddc.Task do
     def iodrivers_base_prepare(model)
         task = syskit_deploy(model)
         syskit_start_execution_agents(task)
-        reader = syskit_create_reader(task.io_raw_out_port, type: :buffer, size: 10)
         writer = syskit_create_writer(task.io_raw_in_port)
 
-        [task, reader, writer]
+        [task, writer]
     end
 
     def start_frame_running
@@ -415,30 +420,6 @@ describe OroGen.genset_whisperpower_ddc.Task do
         end
         .to do
             have_no_new_sample port
-        end
-    end
-
-    def assert_driver_sends_command_frame(frame, command: nil)
-        expect_execution do
-            syskit_write(task.control_cmd_port, command) unless command.nil?
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: frame
-            )
-        end
-        .to do
-            have_one_new_sample task.io_raw_out_port
-        end
-    end
-
-    def assert_driver_does_not_send_command_frame(frame, command: nil)
-        expect_execution do
-            syskit_write(task.control_cmd_port, command) unless command.nil?
-            writer.write Types.iodrivers_base.RawPacket.new(
-                time: Time.now, data: frame
-            )
-        end
-        .to do
-            have_no_new_sample task.io_raw_out_port
         end
     end
 end

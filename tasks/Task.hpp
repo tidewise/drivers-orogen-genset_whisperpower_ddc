@@ -29,9 +29,14 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
     {
 	friend class TaskBase;
     protected:
-        genset_whisperpower_ddc::ControlCommand m_control_cmd;
-
         std::unique_ptr<VariableSpeedMaster> m_driver;
+
+        bool m_running;
+        base::Time m_startTimeout = base::Time::fromSeconds(3);
+
+        void processStartStopCommand();
+        bool isRunning();
+        bool isRunning(GeneratorState state);
 
     public:
         /** TaskContext constructor for Task
@@ -109,4 +114,3 @@ tasks/Task.cpp, and will be put in the genset_whisperpower_ddc namespace.
 }
 
 #endif
-

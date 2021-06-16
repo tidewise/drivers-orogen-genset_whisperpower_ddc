@@ -5,9 +5,9 @@ name "genset_whisperpower_ddc"
 import_types_from "std"
 import_types_from "base"
 
+using_library "base-logging"
 using_library "genset_whisperpower_ddc"
 
-import_types_from "genset_whisperpower_ddc/ControlCommand.hpp"
 import_types_from "genset_whisperpower_ddc/GeneratorState.hpp"
 import_types_from "genset_whisperpower_ddc/RunTimeState.hpp"
 
@@ -22,9 +22,11 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     #
     # Set a control command (start, stop or keep_alive) to be sent in a frame
     # to the power controller
-    input_port "control_cmd", "/genset_whisperpower_ddc/ControlCommand"
+    input_port "control_cmd", "bool"
 
     output_port "generator_state", "/genset_whisperpower_ddc/GeneratorState"
 
     output_port "run_time_state", "/genset_whisperpower_ddc/RunTimeState"
+
+    exception_states "START_TIMEOUT"
 end

@@ -4,6 +4,7 @@ name "genset_whisperpower_ddc"
 
 import_types_from "std"
 import_types_from "base"
+import_types_from "power_whisperpower"
 
 using_library "base-logging"
 using_library "genset_whisperpower_ddc"
@@ -24,8 +25,16 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     # to the power controller
     input_port "control_cmd", "bool"
 
+    # State output common to all gensets
+    output_port "common_generator_state", "/power_whisperpower/GensetState"
+
+    # Run time output common to all gensets
+    output_port "common_run_time_state", "/power_whisperpower/RunTimeState"
+
+    # State output specific to the DDC
     output_port "generator_state", "/genset_whisperpower_ddc/GeneratorState"
 
+    # Run time information
     output_port "run_time_state", "/genset_whisperpower_ddc/RunTimeState"
 
     exception_states "START_TIMEOUT"

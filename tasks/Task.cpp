@@ -110,9 +110,18 @@ void Task::processIO()
         GeneratorState currentState = m_driver->parseGeneratorStateAndModel(frame.payload, now).first;
         m_running = isRunning(currentState);
         _generator_state.write(currentState);
+
+        _common_generator_state.write(currentState.toGensetState());
     }
     else if (frame.command == variable_speed::PACKET_RUN_TIME_STATE) {
-        _run_time_state.write(m_driver->parseRunTimeState(frame.payload, now));
+        auto run_time = m_driver->parseRunTimeState(frame.payload, now);
+        _run_time_state.write(run_time);
+
+        power_whisperpower::RunTimeState common_run_time;
+        common_run_time.time = run_time.time;
+        common_run_time.since_last_maintenance = run_time.total_run_time;
+        common_run_time.total = run_time.historical_run_time;
+        _common_run_time_state.write(common_run_time);
     }
 
     processStartStopCommand();

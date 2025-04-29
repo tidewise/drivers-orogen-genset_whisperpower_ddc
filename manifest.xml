@@ -9,6 +9,7 @@
 
   <depend package="base/logging" />
   <depend package="drivers/genset_whisperpower_ddc" />
+  <depend package="drivers/orogen/power_whisperpower" />
   <depend package="base/orogen/types" />
   <depend package="drivers/orogen/iodrivers_base" />
 

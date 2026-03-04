@@ -60,7 +60,7 @@ bool Task::startHook()
         return false;
 
     try {
-        m_running = isRunning();
+        m_running = isGeneratorRunning();
     }
     catch(const StartTimeoutError& e) {
         LOG_ERROR_S << e.what() << std::endl;
@@ -108,7 +108,7 @@ void Task::processIO()
 
     if (frame.command == variable_speed::PACKET_GENERATOR_STATE_AND_MODEL){
         GeneratorState currentState = m_driver->parseGeneratorStateAndModel(frame.payload, now).first;
-        m_running = isRunning(currentState);
+        m_running = isGeneratorRunning(currentState);
         _generator_state.write(currentState);
 
         _common_generator_state.write(currentState.toGensetState());
@@ -169,11 +169,11 @@ void Task::processStartStopCommand()
     }
 }
 
-bool Task::isRunning(GeneratorState state){
+bool Task::isGeneratorRunning(GeneratorState const& state){
     return state.start_signals & GeneratorState::RUN_SIGNAL;
 }
 
-bool Task::isRunning() {
+bool Task::isGeneratorRunning() {
     base::Time deadline = base::Time::now() + m_startTimeout;
 
     while (true) {
@@ -193,7 +193,7 @@ bool Task::isRunning() {
                 GeneratorState currentState = m_driver->parseGeneratorStateAndModel(
                     frame.payload, base::Time::now()
                 ).first;
-                return currentState.start_signals & GeneratorState::RUN_SIGNAL;
+                return isGeneratorRunning(currentState);
             }
         }
         catch(const variable_speed::WrongSize& e) { }
